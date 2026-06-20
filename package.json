@@ -1,0 +1,18 @@
+{
+  "name": "pollmaster",
+  "version": "1.0.0",
+  "description": "PollMaster Nerimity bot",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js",
+    "register": "node scripts/register.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@nerimity/nerimity.js": "file:../nrepos/nerimity.js"
+  }
+}
