@@ -340,10 +340,41 @@ client.on(Events.MessageButtonClick, async (button) => {
   }
 });
 
+let activityIndex = 0;
+function updatePresence(client) {
+  try {
+    const serverCount = client.servers?.cache?.size ?? 0;
+    const serverLabel = `${serverCount} server${serverCount !== 1 ? "s" : ""}`;
+    const activities = [
+      {
+        action: "Playing",
+        name: "Poll Master",
+        startedAt: Date.now(),
+        title: serverLabel,
+        subtitle: "/poll to create one",
+      },
+      {
+        action: "Watching",
+        name: "Votes roll in",
+        startedAt: Date.now(),
+        title: "📊",
+        subtitle: "let the people speak",
+      },
+    ];
+    const activity = activities[activityIndex % activities.length];
+    activityIndex += 1;
+    client.user?.setActivity(activity);
+  } catch (e) {
+    console.error("[bot] Failed to update presence:", e.message);
+  }
+}
+
 // --- Ready / startup ---
 
 client.on(Events.Ready, () => {
   console.log(`PollMaster ready as ${client.user?.username}`);
+  updatePresence(client);
+  setInterval(() => updatePresence(client), 15000);
 
   // Close polls that expired while the bot was offline
   for (const poll of pollManager.getExpiredPolls()) {
