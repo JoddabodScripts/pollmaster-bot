@@ -1,10 +1,26 @@
+/**
+ * HTML embed builder for Nerimity polls.
+ *
+ * All functions produce inline-HTML embeds styled as Discord-style message embeds.
+ *
+ * @module embedBuilder
+ */
+
 const EMBED_COLOR = '#5865F2';
 const BG_COLOR = '#2f3136';
 const TEXT_PRIMARY = '#dcddde';
 const TEXT_SECONDARY = '#b9bbbe';
 const TEXT_MUTED = '#72767d';
 const BAR_BG = '#40444b';
+const CLOSED_RED = '#ed4245';
 
+// ─── helpers ─────────────────────────────────────────────
+
+/**
+ * Escape HTML special characters to prevent injection.
+ * @param {string} str
+ * @returns {string}
+ */
 function escapeHtml(str) {
   return str
     .replace(/&/g, '&amp;')
@@ -13,11 +29,23 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * Resolve a user ID to a display name via the client cache.
+ * @param {import('@nerimity/nerimity.js').Client|null} client
+ * @param {string} userId
+ * @returns {string}
+ */
 function resolveUser(client, userId) {
   const user = client?.users?.cache?.get(userId);
   return user ? user.username : userId;
 }
 
+/**
+ * Wrap content in a Discord-style embed container.
+ * @param {string} accentColor - CSS color for the left accent bar
+ * @param {string} content - Inner HTML
+ * @returns {string} Full embed HTML
+ */
 function embedContainer(accentColor, content) {
   return `<div style="display:flex;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <div style="width:4px;background:${accentColor};flex-shrink:0;border-radius:5px 0px 0px 5px;"></div>
@@ -25,6 +53,76 @@ function embedContainer(accentColor, content) {
 </div>`;
 }
 
+/**
+ * @typedef {Object} PollData
+ * @property {string} question
+ * @property {string[]} options
+ * @property {Object<string, number[]>} [votes]
+ * @property {boolean} public
+ * @property {boolean} multiple
+ * @property {boolean} closed
+ * @property {string} creatorId
+ * @property {number} createdAt
+ * @property {number|null} [endsAt]
+ */
+
+// ─── vote counting ───────────────────────────────────────
+
+/**
+ * Count votes for a specific option.
+ * @param {PollData} poll
+ * @param {number} optionIndex
+ * @returns {number}
+ */
+function countOptionVotes(poll, optionIndex) {
+  if (!poll.votes) return 0;
+  let count = 0;
+  for (const userId of Object.keys(poll.votes)) {
+    const indices = poll.votes[userId] || [];
+    if (indices.includes(optionIndex)) count++;
+  }
+  return count;
+}
+
+/**
+ * Count total votes across all options.
+ * Note: in a multiple-choice poll, one voter can contribute to multiple counts.
+ * @param {PollData} poll
+ * @returns {number}
+ */
+function countTotalVotes(poll) {
+  let total = 0;
+  for (let i = 0; i < poll.options.length; i++) {
+    total += countOptionVotes(poll, i);
+  }
+  return total;
+}
+
+/**
+ * Get the list of user IDs who voted for a given option.
+ * @param {PollData} poll
+ * @param {number} optionIndex
+ * @returns {string[]}
+ */
+function getVotersForOption(poll, optionIndex) {
+  const voters = [];
+  for (const userId of Object.keys(poll.votes || {})) {
+    const indices = poll.votes[userId] || [];
+    if (indices.includes(optionIndex)) {
+      voters.push(userId);
+    }
+  }
+  return voters;
+}
+
+// ─── embed builders ──────────────────────────────────────
+
+/**
+ * Build the live (open) poll HTML embed.
+ * @param {PollData} poll
+ * @param {import('@nerimity/nerimity.js').Client} client
+ * @returns {string} Full embed HTML
+ */
 function buildPollHtml(poll, client) {
   const total = countTotalVotes(poll);
   const optionLines = poll.options.map((opt, i) => {
@@ -54,16 +152,22 @@ function buildPollHtml(poll, client) {
   }
 
   const body = `<div style="color:${TEXT_PRIMARY};font-size:16px;font-weight:600;margin-bottom:12px;">${escapeHtml(poll.question)}</div>
-  ${optionLines}
-  ${publicVotersHtml}
-  <div style="height:1px;background:${BAR_BG};margin:10px 0 4px 0;"></div>
-  <div style="color:${TEXT_MUTED};font-size:12px;">
-    Total: ${total} vote${total !== 1 ? 's' : ''} · ${privacyLabel} · Created by @${escapeHtml(creatorTag)}
-  </div>`;
+${optionLines}
+${publicVotersHtml}
+<div style="height:1px;background:${BAR_BG};margin:10px 0 4px 0;"></div>
+<div style="color:${TEXT_MUTED};font-size:12px;">
+  Total: ${total} vote${total !== 1 ? 's' : ''} · ${privacyLabel} · Created by @${escapeHtml(creatorTag)}
+</div>`;
 
   return embedContainer(EMBED_COLOR, body);
 }
 
+/**
+ * Build the closed/results HTML embed with visual bar charts.
+ * @param {PollData} poll
+ * @param {import('@nerimity/nerimity.js').Client} client
+ * @returns {string} Full embed HTML
+ */
 function buildResultsHtml(poll, client) {
   const total = countTotalVotes(poll);
   const maxCount = Math.max(1, ...poll.options.map((_, i) => countOptionVotes(poll, i)));
@@ -96,51 +200,27 @@ function buildResultsHtml(poll, client) {
   const creatorTag = resolveUser(client, poll.creatorId);
 
   const body = `<div style="color:${TEXT_PRIMARY};font-size:16px;font-weight:600;margin-bottom:12px;">
-    ${escapeHtml(poll.question)} <span style="color:#ed4245;font-size:13px;font-weight:500;">(closed)</span>
-  </div>
-  ${optionBars}
-  <div style="height:1px;background:${BAR_BG};margin:10px 0 4px 0;"></div>
-  <div style="color:${TEXT_MUTED};font-size:12px;">
-    Total: ${total} vote${total !== 1 ? 's' : ''} · ${privacyLabel} · Created by @${escapeHtml(creatorTag)}
-  </div>`;
+  ${escapeHtml(poll.question)} <span style="color:${CLOSED_RED};font-size:13px;font-weight:500;">(closed)</span>
+</div>
+${optionBars}
+<div style="height:1px;background:${BAR_BG};margin:10px 0 4px 0;"></div>
+<div style="color:${TEXT_MUTED};font-size:12px;">
+  Total: ${total} vote${total !== 1 ? 's' : ''} · ${privacyLabel} · Created by @${escapeHtml(creatorTag)}
+</div>`;
 
   return embedContainer(EMBED_COLOR, body);
 }
 
+/**
+ * Build the button array for a poll message.
+ * @param {PollData} poll
+ * @returns {Array<{ id: string, label: string }>}
+ */
 function buildButtons(poll) {
   return poll.options.map((opt, i) => ({
     id: String(i),
     label: opt,
   }));
-}
-
-function countOptionVotes(poll, optionIndex) {
-  if (!poll.votes) return 0;
-  let count = 0;
-  for (const userId of Object.keys(poll.votes)) {
-    const indices = poll.votes[userId] || [];
-    if (indices.includes(optionIndex)) count++;
-  }
-  return count;
-}
-
-function countTotalVotes(poll) {
-  let total = 0;
-  for (let i = 0; i < poll.options.length; i++) {
-    total += countOptionVotes(poll, i);
-  }
-  return total;
-}
-
-function getVotersForOption(poll, optionIndex) {
-  const voters = [];
-  for (const userId of Object.keys(poll.votes || {})) {
-    const indices = poll.votes[userId] || [];
-    if (indices.includes(optionIndex)) {
-      voters.push(userId);
-    }
-  }
-  return voters;
 }
 
 module.exports = {
