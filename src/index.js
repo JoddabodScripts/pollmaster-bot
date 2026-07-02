@@ -9,7 +9,7 @@ const PollManager = require('./pollManager');
 const { loadEnv } = require('./env');
 const { buildPollHtml, buildResultsHtml, buildButtons } = require('./embedBuilder');
 const { parsePollArgs, formatDuration } = require('./args');
-const { startPresenceRotation } = require('./presence');
+const { setPresence } = require('./presence');
 
 // ── bootstrap ─────────────────────────────────────────────
 
@@ -356,7 +356,7 @@ client.on(Events.MessageButtonClick, async (button) => {
 
 client.on(Events.Ready, () => {
   console.log(`PollMaster ready as ${client.user?.username}`);
-  startPresenceRotation(client);
+  setPresence(client);
 
   // Close polls that expired while the bot was offline
   for (const poll of pollManager.getExpiredPolls()) {
