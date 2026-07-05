@@ -25,6 +25,32 @@ const client = new Client();
 const pollManager = new PollManager();
 const POLL_EMPTY_CONTENT = '​';
 
+const HELP_TEXT = [
+  '**Creating a poll: no quotes needed**',
+  '`/poll What\'s for lunch? | Pizza | Sushi | Salad`',
+  '',
+  'You can also put the question and each option on their own lines (Shift+Enter), or use the classic `"quoted"` style.',
+  '',
+  '**Extras (add anywhere):**',
+  '`--multiple`: let people vote for more than one option',
+  '`--public`: show who voted for what',
+  '`--time 30m`: auto-close after a while (`30m`, `2h`, `1d`, `1h30m`, or plain minutes)',
+  '',
+  '**Managing polls:**',
+  '`/poll list`: show open polls in this channel',
+  '`/poll end`: close your latest poll (`/poll end 2` to pick from the list)',
+  '`/poll results`: repost the last closed poll\'s results',
+].join('\n');
+
+/**
+ * Reply to a message with the help text.
+ *
+ * @param {import('@nerimity/nerimity.js').Message} message
+ */
+async function sendHelp(message) {
+  await message.channel.send(HELP_TEXT, { replyToMessageIds: [message.id] });
+}
+
 // ── helpers ───────────────────────────────────────────────
 
 /**
@@ -62,9 +88,13 @@ async function closePoll(channelId, messageId) {
 client.on(Events.MessageCreate, async (message) => {
   if (!message.command || message.command.name !== 'poll') return;
 
-  const { args, flags } = parsePollArgs(message.content);
+  const { args, flags, mode } = parsePollArgs(message.content);
 
-  switch (args[0]) {
+  // Sub-commands are only recognized in bare-word form, so a poll like
+  // `/poll end of year party? | yes | no` isn't swallowed by `end`.
+  const sub = mode === 'words' ? (args[0] || '').toLowerCase() : null;
+
+  switch (sub) {
     case 'end':
       await handleEndPoll(message, args);
       break;
@@ -74,8 +104,11 @@ client.on(Events.MessageCreate, async (message) => {
     case 'results':
       await handleResults(message);
       break;
+    case 'help':
+      await sendHelp(message);
+      break;
     default:
-      await handleCreatePoll(message, args, flags);
+      await handleCreatePoll(message, args, flags, mode);
       break;
   }
 });
@@ -175,7 +208,7 @@ async function handleListPolls(message) {
   });
 
   await message.channel.send(
-    `**📊 Open polls in this channel**\n${lines.join('\n')}\n\nUse \`/poll end <number>\` to close a specific poll.`,
+    `**Open polls in this channel**\n${lines.join('\n')}\n\nUse \`/poll end <number>\` to close a specific poll.`,
     { replyToMessageIds: [message.id] },
   );
 }
@@ -212,18 +245,43 @@ async function handleResults(message) {
 
 /**
  * Create a new poll from the provided arguments.
- * Usage: `/poll "Question?" "Option A" "Option B" ["Option C" ...] [--multiple] [--public] [--duration <min>]`
+ * Usage: `/poll Question? | Option A | Option B [--multiple] [--public] [--time <duration>]`
+ * (also accepts newline-separated and quoted forms — see parsePollArgs)
  *
  * @param {import('@nerimity/nerimity.js').Message} message
  * @param {string[]} args
  * @param {import('./args').PollFlags} flags
+ * @param {'lines'|'pipes'|'quotes'|'words'} mode
  */
-async function handleCreatePoll(message, args, flags) {
+async function handleCreatePoll(message, args, flags, mode) {
+  // Bare words can't be split into a question + options reliably —
+  // point people at the separator syntax instead of guessing.
+  if (mode === 'words') {
+    if (args.length > 0) {
+      const example = `/poll ${args.join(' ')} | Option A | Option B`;
+      await message.channel.send(
+        `I can't tell where the question ends and the options start. Separate them with \`|\`, like:\n\`${example}\`\n\nOr type \`/poll help\` for all the ways to make a poll.`,
+        { replyToMessageIds: [message.id] },
+      );
+    } else {
+      await sendHelp(message);
+    }
+    return;
+  }
+
   const [question, ...options] = args;
 
   if (!question || options.length < 2) {
     await message.channel.send(
-      'Usage: `/poll "Question?" "Option A" "Option B" ["Option C" ...] [--multiple] [--public] [--duration <minutes>]`',
+      `A poll needs a question and at least 2 options, like:\n\`/poll What's for lunch? | Pizza | Sushi | Salad\`\n\nType \`/poll help\` for more.`,
+      { replyToMessageIds: [message.id] },
+    );
+    return;
+  }
+
+  if (flags.badDuration) {
+    await message.channel.send(
+      `I couldn't understand the duration \`${flags.badDuration}\`. Try something like \`--time 30m\`, \`--time 2h\`, or \`--time 1d\`.`,
       { replyToMessageIds: [message.id] },
     );
     return;

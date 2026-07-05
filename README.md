@@ -61,40 +61,59 @@ npm start
 
 ### Creating a Poll
 
-Use the `/poll` command with your question and options:
+Separate the question and options with `|` — no quotes needed:
+
+```
+/poll What's your favorite color? | Red | Blue | Green
+```
+
+Or put the question and each option on their own lines (Shift+Enter):
+
+```
+/poll What's your favorite color?
+Red
+Blue
+Green
+```
+
+The classic quoted style still works too:
 
 ```
 /poll "What's your favorite color?" "Red" "Blue" "Green"
 ```
 
+Type `/poll help` in any channel for a quick reference.
+
 ### Command Flags
 
-- `--multiple`: Allow users to select multiple options
-- `--public`: Show voter names for each option
-- `--duration <minutes>`: Auto-close the poll after specified minutes
+Flags can go anywhere in the command:
+
+- `--multiple` (or `-m`): Allow users to select multiple options
+- `--public` (or `-p`): Show voter names for each option
+- `--time <duration>` (or `--duration`, `-t`): Auto-close after a duration like `30m`, `2h`, `1d`, `1h30m`, or plain minutes
 
 ### Examples
 
 **Simple poll:**
 ```
-/poll "Should we have a meeting tomorrow?" "Yes" "No" "Maybe"
+/poll Should we have a meeting tomorrow? | Yes | No | Maybe
 ```
 
 **Multiple choice poll:**
 ```
-/poll "Which features do you want?" "Feature A" "Feature B" "Feature C" --multiple
+/poll Which features do you want? | Feature A | Feature B | Feature C --multiple
 ```
 
-**Public poll with auto-close:**
+**Public poll that closes in 2 hours:**
 ```
-/poll "Pizza toppings?" "Pepperoni" "Mushrooms" "Olives" --public --duration 30
+/poll Pizza toppings? | Pepperoni | Mushrooms | Olives --public --time 2h
 ```
 
 **Closing a poll manually:**
 ```
 /poll end
 ```
-_(Click the "End Poll" button on an active poll you created, or have admin permissions)_
+_(Only the poll creator or an admin can end a poll. Use `/poll list` to see open polls and `/poll end <number>` to close a specific one.)_
 
 ### Voting
 

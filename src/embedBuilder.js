@@ -6,7 +6,9 @@
  * @module embedBuilder
  */
 
-const EMBED_COLOR = '#5865F2';
+const { formatDuration } = require('./args');
+
+const EMBED_COLOR = '#f28c18';
 const BG_COLOR = '#2f3136';
 const TEXT_PRIMARY = '#dcddde';
 const TEXT_SECONDARY = '#b9bbbe';
@@ -151,12 +153,16 @@ function buildPollHtml(poll, client) {
     }
   }
 
+  const closesLabel = poll.endsAt
+    ? ` · closes in ~${formatDuration(poll.endsAt - Date.now())}`
+    : '';
+
   const body = `<div style="color:${TEXT_PRIMARY};font-size:16px;font-weight:600;margin-bottom:12px;">${escapeHtml(poll.question)}</div>
 ${optionLines}
 ${publicVotersHtml}
 <div style="height:1px;background:${BAR_BG};margin:10px 0 4px 0;"></div>
 <div style="color:${TEXT_MUTED};font-size:12px;">
-  Total: ${total} vote${total !== 1 ? 's' : ''} · ${privacyLabel} · Created by @${escapeHtml(creatorTag)}
+  Total: ${total} vote${total !== 1 ? 's' : ''} · ${privacyLabel} · Created by @${escapeHtml(creatorTag)}${closesLabel}
 </div>`;
 
   return embedContainer(EMBED_COLOR, body);

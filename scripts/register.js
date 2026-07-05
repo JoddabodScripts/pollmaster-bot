@@ -18,7 +18,7 @@ const body = {
   commands: [
     {
       name: 'poll',
-      description: 'Create a poll with multiple options and flags',
+      description: 'Create a poll: /poll Question? | A | B (/poll help)',
       args: '',
     },
   ],
