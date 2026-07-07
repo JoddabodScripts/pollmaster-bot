@@ -10,12 +10,17 @@ const DATA_FILE = path.join(__dirname, '..', 'data', 'polls.json');
  * Timers for auto-close are tracked via a side-channel Map.
  */
 class PollManager {
-  constructor() {
+  /**
+   * @param {string} [dataFile] - Override the JSON storage path (default: `data/polls.json`). Mainly for tests.
+   */
+  constructor(dataFile) {
     /** @type {Record<string, object>} */
     this.polls = {};
 
     /** @type {Map<string, NodeJS.Timeout>} */
     this.timers = new Map();
+
+    this.dataFile = dataFile || DATA_FILE;
 
     this._ensureDataDir();
     this._load();
@@ -25,7 +30,7 @@ class PollManager {
 
   /** Ensure the data directory exists on disk. */
   _ensureDataDir() {
-    const dir = path.dirname(DATA_FILE);
+    const dir = path.dirname(this.dataFile);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
@@ -34,7 +39,7 @@ class PollManager {
   /** Load polls from the JSON file. */
   _load() {
     try {
-      this.polls = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+      this.polls = JSON.parse(fs.readFileSync(this.dataFile, 'utf-8'));
     } catch {
       this.polls = {};
     }
@@ -42,7 +47,7 @@ class PollManager {
 
   /** Persist all polls to the JSON file. */
   save() {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(this.polls, null, 2));
+    fs.writeFileSync(this.dataFile, JSON.stringify(this.polls, null, 2));
   }
 
   // ── internal key helpers ───────────────────────────────

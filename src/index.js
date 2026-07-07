@@ -307,6 +307,7 @@ async function handleCreatePoll(message, args, flags, mode) {
         public: flags.public,
         multiple: flags.multiple,
         creatorId: message.user.id,
+        endsAt,
       }, client),
       buttons: options.map((opt, i) => ({ id: String(i), label: opt })),
       replyToMessageIds: [message.id],
